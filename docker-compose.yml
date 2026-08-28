@@ -57,6 +57,11 @@ services:
       dockerfile: apps/web/Dockerfile
     restart: unless-stopped
     env_file: .env
+    environment:
+      # Docker сам выставляет HOSTNAME=<container id>, а standalone-сервер Next.js слушает
+      # именно этот адрес вместо всех интерфейсов — из-за этого healthcheck изнутри контейнера
+      # (127.0.0.1) не мог достучаться до сервера, хотя проброс порта наружу работал.
+      HOSTNAME: '0.0.0.0'
     depends_on:
       postgres:
         condition: service_healthy
