@@ -27,6 +27,22 @@ ensure_packages() {
   docker compose version >/dev/null 2>&1 || fail "плагин 'docker compose' не найден (нужен Docker Engine с Compose v2)"
 }
 
+ensure_github_dns_workaround() {
+  # На этом сервере DNS-резолвер провайдера отдаёт нерабочий IP для github.com/codeload.github.com
+  # (сетевая особенность хостинга, не связана с проектом). Фиксируем реальные IP в /etc/hosts —
+  # без этого git clone/fetch зависает или падает по таймауту. Если GitHub сменит диапазон адресов,
+  # обновите IP ниже (актуальные можно узнать с машины с рабочим DNS: `dig +short github.com`).
+  grep -q '^140\.82\..*github\.com' /etc/hosts 2>/dev/null && return 0
+  log "Добавляю статичные записи GitHub в /etc/hosts (обход неисправного DNS провайдера)…"
+  cat >> /etc/hosts << 'EOF'
+
+# twomcsu-discord-bot: DNS-резолвер провайдера возвращает нерабочий IP для GitHub — фиксируем реальные адреса
+140.82.121.3 github.com
+140.82.121.9 codeload.github.com
+140.82.121.6 api.github.com
+EOF
+}
+
 sync_repo() {
   if [ ! -d "$REPO_DIR/.git" ]; then
     log "Клонирую репозиторий в $REPO_DIR…"
@@ -87,6 +103,7 @@ setup_nginx_tls() {
 }
 
 ensure_packages
+ensure_github_dns_workaround
 sync_repo
 check_env
 deploy_services

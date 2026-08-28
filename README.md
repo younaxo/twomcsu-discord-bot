@@ -106,6 +106,11 @@ mkdir -p /opt/twomcsu-discord-bot
 curl -fsSL https://raw.githubusercontent.com/younaxo/twomcsu-discord-bot/main/scripts/deploy.sh | bash
 ```
 
+На проде DNS-резолвер провайдера отдаёт нерабочий IP для `github.com`/`codeload.github.com`
+(сетевая особенность хостинга) — `deploy.sh` сам прописывает рабочие IP в `/etc/hosts`
+при первом запуске. Если GitHub сменит диапазон адресов и клонирование снова начнёт
+зависать, обновите IP в `ensure_github_dns_workaround()` в `scripts/deploy.sh`.
+
 Повторный запуск `scripts/deploy.sh` безопасен: подтягивает код, пересобирает образы,
 применяет новые миграции, перезапускает контейнеры и обновляет nginx-конфиг для
 `bot.twomc.su`, не трогая остальные сайты на сервере. Сертификат Let's Encrypt выпускается
