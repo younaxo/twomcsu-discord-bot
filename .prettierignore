@@ -1,0 +1,8 @@
+node_modules
+dist
+build
+.next
+out
+pnpm-lock.yaml
+packages/db/generated
+apps/web/.next

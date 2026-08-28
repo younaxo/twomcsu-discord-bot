@@ -1,0 +1,203 @@
+// Схема базы данных. Изменения вносим только через `prisma migrate dev` — правки руками недопустимы.
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Настройки одного Discord-сервера (guild). Одна запись на guild.
+model GuildSettings {
+  id                         String   @id @default(cuid())
+  guildId                    String   @unique
+  ticketNamePattern          String   @default("ticket-{number}")
+  defaultLogChannelId        String?
+  defaultTranscriptChannelId String?
+  /// Атомарный счётчик номеров тикетов. Инкрементируется в транзакции при создании тикета.
+  nextTicketNumber           Int      @default(1)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+}
+
+/// Категория тикетов: правила создания канала, роли поддержки, тексты.
+model TicketCategory {
+  id                      String   @id @default(cuid())
+  guildId                 String
+  name                    String
+  description             String   @default("")
+  emoji                   String
+  color                   String
+  welcomeMessage          String
+  discordCategoryId       String?
+  supportRoleIds          String[]
+  logChannelId            String?
+  transcriptChannelId     String?
+  maxActiveTicketsPerUser Int      @default(1)
+  isEnabled               Boolean  @default(true)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  tickets    Ticket[]
+  panelLinks TicketPanelCategory[]
+
+  @@index([guildId])
+}
+
+/// Опубликованное в Discord сообщение-панель для создания тикетов.
+model TicketPanel {
+  id            String   @id @default(cuid())
+  guildId       String
+  channelId     String
+  messageId     String?
+  title         String
+  description   String
+  componentType String
+  createdById   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  categories TicketPanelCategory[]
+
+  @@index([guildId])
+}
+
+/// Связь панели с категориями и их порядок отображения (кнопки/пункты меню).
+model TicketPanelCategory {
+  id         String @id @default(cuid())
+  panelId    String
+  categoryId String
+  position   Int
+
+  panel    TicketPanel    @relation(fields: [panelId], references: [id], onDelete: Cascade)
+  category TicketCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([panelId, categoryId])
+}
+
+enum TicketStatus {
+  OPEN
+  CLAIMED
+  CLOSED
+}
+
+model Ticket {
+  id          String       @id @default(cuid())
+  guildId     String
+  number      Int
+  /// Null после удаления Discord-канала — запись и история тикета сохраняются.
+  channelId   String?      @unique
+  /// Сообщение с кнопками управления тикетом — перерисовывается при смене статуса.
+  controlMessageId String?
+  categoryId  String
+  authorId    String
+  status      TicketStatus @default(OPEN)
+  claimedById String?
+  closedById  String?
+  closeReason String?
+  createdAt   DateTime     @default(now())
+  claimedAt   DateTime?
+  closedAt    DateTime?
+  reopenedAt  DateTime?
+  deletedAt   DateTime?
+
+  category   TicketCategory @relation(fields: [categoryId], references: [id])
+  members    TicketMember[]
+  rating     TicketRating?
+  transcript Transcript?
+
+  @@unique([guildId, number])
+  @@index([guildId, status])
+  @@index([authorId])
+}
+
+/// Дополнительные участники тикета помимо автора и ролей поддержки.
+model TicketMember {
+  id        String   @id @default(cuid())
+  ticketId  String
+  userId    String
+  addedById String
+  addedAt   DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@unique([ticketId, userId])
+}
+
+/// Оценка работы сотрудника автором тикета. Одна оценка на тикет (защита от повторной).
+model TicketRating {
+  id        String   @id @default(cuid())
+  ticketId  String   @unique
+  raterId   String
+  staffId   String?
+  score     Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([staffId])
+}
+
+/// Готовый HTML-транскрипт закрытого тикета.
+model Transcript {
+  id           String   @id @default(cuid())
+  ticketId     String   @unique
+  html         String
+  messageCount Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+}
+
+/// Серверная сессия администратора панели. Токен в cookie — только хэш в БД.
+model AdminSession {
+  id            String    @id @default(cuid())
+  discordUserId String
+  tokenHash     String    @unique
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime  @default(now())
+  lastSeenAt    DateTime  @default(now())
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  revokedReason String?
+
+  @@index([discordUserId])
+}
+
+/// Кэш профиля участника сервера для раздела "Пользователи". Никогда не используется для проверки прав.
+model DiscordMemberCache {
+  discordUserId String    @id
+  username      String
+  globalName    String?
+  avatarUrl     String?
+  roleIds       String[]
+  joinedAt      DateTime?
+  refreshedAt   DateTime  @default(now())
+}
+
+enum AuditActorType {
+  ADMIN
+  SYSTEM
+  DISCORD_USER
+}
+
+/// Единый журнал аудита: изменения настроек, действия в тикетах, входы в панель.
+model AuditLog {
+  id        String         @id @default(cuid())
+  action    String
+  actorType AuditActorType @default(ADMIN)
+  actorId   String?
+  targetType String?
+  targetId  String?
+  metadata  Json?
+  createdAt DateTime       @default(now())
+
+  @@index([targetType, targetId])
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+}

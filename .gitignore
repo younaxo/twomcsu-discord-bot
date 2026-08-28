@@ -1,0 +1,35 @@
+# зависимости и сборка
+node_modules/
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# переменные окружения — реальные значения никогда не коммитим
+.env
+.env.*
+!.env.example
+
+# логи
+*.log
+logs/
+
+# prisma
+packages/db/generated/
+
+# транскрипты тикетов (генерируются рантаймом, не для репозитория)
+apps/bot/transcripts/
+
+# ide/os
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# тесты/покрытие
+coverage/
+
+# pnpm
+.pnpm-store/
