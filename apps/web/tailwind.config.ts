@@ -1,5 +1,12 @@
 import type { Config } from 'tailwindcss';
 
+// Цвета читаются из CSS-переменных (см. globals.css) — это и есть design tokens проекта.
+// Имена ключей (brand/surface) сохранены ради совместимости с уже написанными компонентами,
+// сами значения теперь ведут на тёплую тёмно-оранжевую палитру вместо старой сине-зелёной.
+function withOpacity(variable: string) {
+  return `rgb(var(${variable}) / <alpha-value>)`;
+}
+
 export default {
   content: ['./src/**/*.{ts,tsx}'],
   darkMode: 'class',
@@ -7,18 +14,23 @@ export default {
     extend: {
       colors: {
         brand: {
-          DEFAULT: '#5865f2',
-          dark: '#3f47b3',
-          accent: '#00d3a7',
+          DEFAULT: withOpacity('--accent'),
+          dark: withOpacity('--accent-solid'),
+          accent: withOpacity('--accent-soft'),
         },
         surface: {
-          DEFAULT: '#0f1117',
-          raised: '#161923',
-          border: '#242938',
+          DEFAULT: withOpacity('--bg'),
+          raised: withOpacity('--bg-elevated'),
+          glass: withOpacity('--glass'),
+          border: withOpacity('--border'),
         },
+        muted: withOpacity('--text-muted'),
+        success: withOpacity('--success'),
+        warning: withOpacity('--warning'),
+        danger: withOpacity('--danger'),
       },
       fontFamily: {
-        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
+        sans: ['Onest', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
       },
     },
   },

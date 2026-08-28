@@ -1,3 +1,5 @@
+import { ShieldAlert } from 'lucide-react';
+
 const REASON_MESSAGES: Record<string, string> = {
   no_access:
     'У вашего аккаунта нет роли, необходимой для доступа к панели, либо вы не состоите на сервере TWOMC.SU.',
@@ -17,11 +19,11 @@ export default async function AccessDeniedPage({
   return (
     <main className="flex min-h-screen items-center justify-center px-4">
       <div className="card w-full max-w-md text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-3xl">
-          🚫
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full badge-danger">
+          <ShieldAlert size={28} aria-hidden="true" />
         </div>
         <h1 className="text-xl font-semibold text-white">Доступ запрещён</h1>
-        <p className="mt-2 text-sm text-slate-400">{message}</p>
+        <p className="mt-2 text-sm text-muted">{message}</p>
         <a href="/login" className="btn-secondary mt-6 w-full">
           Вернуться к странице входа
         </a>

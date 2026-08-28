@@ -1,43 +1,243 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@import './fonts.css';
 
+/*
+ * Design tokens: тёмная тёплая (коричнево-оранжевая) палитра TWOMC.SU.
+ * Значения — RGB-триплеты без функции, чтобы Tailwind мог подставлять alpha через
+ * rgb(var(--x) / <alpha-value>) — см. tailwind.config.ts.
+ *
+ * Контраст проверен по WCAG: --text и статусные цвета на --bg дают ≥ 7:1,
+ * --accent-solid для заливки кнопок с белым текстом — ≥ 5:1 (AA для обычного текста).
+ * Насыщенный --accent используется только как текст/иконка/обводка на тёмном фоне —
+ * там ограничение мягче (3:1 для не-текстовых элементов), это соблюдается с запасом.
+ */
 :root {
   color-scheme: dark;
+
+  --bg: 19 15 12;
+  --bg-elevated: 28 21 16;
+  --glass: 42 31 22;
+  --border: 66 50 38;
+  --border-strong: 92 68 50;
+  --text: 245 237 230;
+  --text-muted: 172 156 142;
+
+  --accent: 249 115 22;
+  --accent-soft: 255 170 110;
+  --accent-solid: 194 65 12;
+  --accent-solid-hover: 161 54 10;
+
+  --success: 74 222 128;
+  --warning: 250 204 21;
+  --danger: 248 113 113;
+  --danger-solid: 185 28 28;
+  --danger-solid-hover: 153 27 27;
+
+  --focus-ring: 255 149 64;
+}
+
+* {
+  border-color: rgb(var(--border));
 }
 
 body {
-  @apply bg-surface text-slate-100 antialiased;
+  background: rgb(var(--bg));
+  color: rgb(var(--text));
+  font-family: 'Onest', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-feature-settings: 'tnum' 1; /* табличные цифры — метрики не «пляшут» по ширине */
+  -webkit-font-smoothing: antialiased;
 }
 
 ::selection {
-  @apply bg-brand/40;
+  background: rgb(var(--accent) / 0.35);
+}
+
+/* Единый видимый focus ring вместо браузерного outline — не убираем его никогда,
+   только заменяем на согласованный со стилем панели. */
+:focus-visible {
+  outline: 2px solid rgb(var(--focus-ring));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --- Поверхности --- */
+
+.surface {
+  background: rgb(var(--bg-elevated));
+  border: 1px solid rgb(var(--border));
 }
 
 .card {
-  @apply rounded-xl border border-surface-border bg-surface-raised p-5 shadow-sm;
+  @apply rounded-xl p-5 shadow-sm;
+  background: rgb(var(--bg-elevated));
+  border: 1px solid rgb(var(--border));
 }
 
+/*
+ * Liquid Glass: применяется точечно — навигация, верхние панели, модальные поверхности,
+ * фильтры. Под стеклом обязателен собственный контролируемый фон (surface/bg-elevated),
+ * иначе на просвечивающемся контенте падает читаемость.
+ */
+.glass {
+  background: rgb(var(--glass) / 0.72);
+  border: 1px solid rgb(var(--border-strong) / 0.6);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.05),
+    0 8px 24px rgb(0 0 0 / 0.35);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .glass {
+    background: rgb(var(--glass) / 0.55);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+  }
+}
+
+/* Без backdrop-filter (старые браузеры) стекло превращается в обычную непрозрачную
+   поверхность — читаемость не страдает, просто нет эффекта размытия фона. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    background: rgb(var(--bg-elevated));
+  }
+}
+
+@media (prefers-contrast: more) {
+  .glass {
+    background: rgb(var(--bg-elevated));
+    border-color: rgb(var(--text-muted));
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    background: rgb(var(--bg-elevated));
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* --- Кнопки --- */
+
 .btn-primary {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-[36px];
+  background: rgb(var(--accent-solid));
+}
+.btn-primary:hover:not(:disabled) {
+  background: rgb(var(--accent-solid-hover));
 }
 
 .btn-secondary {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg border border-surface-border bg-transparent px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-[36px];
+  background: transparent;
+  border: 1px solid rgb(var(--border-strong));
+  color: rgb(var(--text));
+}
+.btn-secondary:hover:not(:disabled) {
+  background: rgb(255 255 255 / 0.06);
 }
 
 .btn-danger {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-[36px];
+  background: rgb(var(--danger-solid));
+}
+.btn-danger:hover:not(:disabled) {
+  background: rgb(var(--danger-solid-hover));
 }
 
+.btn-ghost {
+  @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-[36px];
+  color: rgb(var(--text-muted));
+}
+.btn-ghost:hover:not(:disabled) {
+  color: rgb(var(--text));
+  background: rgb(255 255 255 / 0.05);
+}
+
+/* --- Формы --- */
+
 .input {
-  @apply w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-brand;
+  @apply w-full rounded-lg px-3 py-2 text-sm outline-none transition-colors;
+  background: rgb(var(--bg));
+  border: 1px solid rgb(var(--border));
+  color: rgb(var(--text));
+  min-height: 44px;
+}
+@media (min-width: 640px) {
+  .input {
+    min-height: 36px;
+  }
+}
+.input:focus {
+  border-color: rgb(var(--accent));
+}
+.input::placeholder {
+  color: rgb(var(--text-muted));
 }
 
 .label {
-  @apply mb-1.5 block text-sm font-medium text-slate-300;
+  @apply mb-1.5 block text-sm font-medium;
+  color: rgb(var(--text-muted));
 }
 
 .badge {
-  @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium;
+}
+
+.badge-success {
+  background: rgb(var(--success) / 0.14);
+  color: rgb(var(--success));
+}
+.badge-warning {
+  background: rgb(var(--warning) / 0.14);
+  color: rgb(var(--warning));
+}
+.badge-danger {
+  background: rgb(var(--danger) / 0.14);
+  color: rgb(var(--danger));
+}
+.badge-neutral {
+  background: rgb(var(--text-muted) / 0.14);
+  color: rgb(var(--text-muted));
+}
+.badge-accent {
+  background: rgb(var(--accent) / 0.16);
+  color: rgb(var(--accent));
+}
+
+/* --- Скелетоны --- */
+
+.skeleton {
+  border-radius: 0.5rem;
+  background: linear-gradient(
+    90deg,
+    rgb(var(--bg-elevated)) 25%,
+    rgb(var(--border)) 37%,
+    rgb(var(--bg-elevated)) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+}
+@keyframes skeleton-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    background: rgb(var(--bg-elevated));
+  }
 }

@@ -134,7 +134,7 @@ export default function PanelsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-white">Панели создания тикетов</h1>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-muted">
           Соберите сообщение с кнопками или select-меню и опубликуйте его в нужном канале.
         </p>
       </div>
@@ -192,7 +192,7 @@ export default function PanelsPage() {
             <label className="label">Категории (порядок = порядок выбора)</label>
             <div className="space-y-1.5">
               {categories.map((category) => (
-                <label key={category.id} className="flex items-center gap-2 text-sm text-slate-300">
+                <label key={category.id} className="flex items-center gap-2 text-sm text-muted">
                   <input
                     type="checkbox"
                     checked={form.categoryIds.includes(category.id)}
@@ -200,12 +200,12 @@ export default function PanelsPage() {
                   />
                   {category.emoji} {category.name}
                   {!category.isEnabled && (
-                    <span className="badge bg-slate-700 text-slate-300">отключена</span>
+                    <span className="badge bg-slate-700 text-muted">отключена</span>
                   )}
                 </label>
               ))}
               {categories.length === 0 && (
-                <p className="text-xs text-slate-500">Сначала создайте категории тикетов.</p>
+                <p className="text-xs text-muted">Сначала создайте категории тикетов.</p>
               )}
             </div>
           </div>
@@ -226,7 +226,7 @@ export default function PanelsPage() {
           <h2 className="mb-3 font-medium text-white">Предпросмотр</h2>
           <div className="rounded-lg bg-[#313338] p-4">
             <p className="font-semibold text-white">{form.title || 'Заголовок панели'}</p>
-            <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300">
+            <p className="mt-1 whitespace-pre-wrap text-sm text-muted">
               {form.description || 'Описание панели'}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -237,7 +237,7 @@ export default function PanelsPage() {
                   </span>
                 ))
               ) : (
-                <div className="w-full rounded-md border border-white/10 bg-[#1e1f22] px-3 py-2 text-sm text-slate-300">
+                <div className="w-full rounded-md border border-white/10 bg-[#1e1f22] px-3 py-2 text-sm text-muted">
                   {selectedCategories.length > 0
                     ? 'Выберите категорию обращения ▾'
                     : 'Категории не выбраны'}
@@ -253,7 +253,7 @@ export default function PanelsPage() {
       <div className="card">
         <h2 className="mb-4 font-medium text-white">Опубликованные панели</h2>
         {panels.length === 0 ? (
-          <p className="text-sm text-slate-400">Панелей пока нет.</p>
+          <p className="text-sm text-muted">Панелей пока нет.</p>
         ) : (
           <div className="space-y-2">
             {panels.map((panel) => (
@@ -263,7 +263,7 @@ export default function PanelsPage() {
               >
                 <div>
                   <p className="font-medium text-white">{panel.title}</p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-muted">
                     Канал: {panel.channelId} ·{' '}
                     {panel.messageId ? 'опубликована' : 'ещё не опубликована'}
                   </p>

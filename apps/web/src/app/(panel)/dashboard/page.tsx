@@ -45,9 +45,9 @@ function StatCard({
     tone === 'ok' ? 'text-emerald-400' : tone === 'bad' ? 'text-red-400' : 'text-white';
   return (
     <div className="card">
-      <p className="text-sm text-slate-400">{title}</p>
+      <p className="text-sm text-muted">{title}</p>
       <p className={`mt-1 text-2xl font-semibold ${toneClass}`}>{value}</p>
-      {sub && <p className="mt-1 text-xs text-slate-500">{sub}</p>}
+      {sub && <p className="mt-1 text-xs text-muted">{sub}</p>}
     </div>
   );
 }
@@ -60,7 +60,7 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-white">Обзор</h1>
-        <p className="text-sm text-slate-400">Текущее состояние бота, базы данных и тикетов.</p>
+        <p className="text-sm text-muted">Текущее состояние бота, базы данных и тикетов.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">

@@ -123,7 +123,7 @@ export default function CategoriesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-white">Категории тикетов</h1>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-muted">
           Правила создания канала, роли поддержки и тексты для каждой категории.
         </p>
       </div>
@@ -240,7 +240,7 @@ export default function CategoriesPage() {
           />
         </div>
 
-        <label className="flex items-center gap-2 text-sm text-slate-300">
+        <label className="flex items-center gap-2 text-sm text-muted">
           <input
             type="checkbox"
             checked={form.isEnabled}
@@ -264,9 +264,9 @@ export default function CategoriesPage() {
       <div className="card">
         <h2 className="mb-4 font-medium text-white">Список категорий</h2>
         {loading ? (
-          <p className="text-sm text-slate-400">Загрузка…</p>
+          <p className="text-sm text-muted">Загрузка…</p>
         ) : categories.length === 0 ? (
-          <p className="text-sm text-slate-400">Категорий пока нет — создайте первую выше.</p>
+          <p className="text-sm text-muted">Категорий пока нет — создайте первую выше.</p>
         ) : (
           <div className="space-y-2">
             {categories.map((category) => (
@@ -278,7 +278,7 @@ export default function CategoriesPage() {
                   <span className="text-xl">{category.emoji}</span>
                   <div>
                     <p className="font-medium text-white">{category.name}</p>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-muted">
                       {category.isEnabled ? 'Активна' : 'Отключена'} · лимит{' '}
                       {category.maxActiveTicketsPerUser} на пользователя
                     </p>

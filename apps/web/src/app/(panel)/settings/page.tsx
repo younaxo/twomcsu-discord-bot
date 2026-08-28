@@ -39,13 +39,13 @@ export default function SettingsPage() {
     setSaving(false);
   }
 
-  if (loading) return <p className="text-sm text-slate-400">Загрузка…</p>;
+  if (loading) return <p className="text-sm text-muted">Загрузка…</p>;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-white">Общие настройки</h1>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-muted">
           Значения по умолчанию — категории могут переопределять их своими каналами
           логов/транскриптов.
         </p>
@@ -79,7 +79,7 @@ export default function SettingsPage() {
             value={ticketNamePattern}
             onChange={(e) => setTicketNamePattern(e.target.value)}
           />
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-muted">
             Доступные плейсхолдеры: {'{number}'}, {'{category}'}
           </p>
         </div>

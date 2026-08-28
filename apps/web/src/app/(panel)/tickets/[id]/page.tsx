@@ -2,6 +2,8 @@
 
 import { use, useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/clientApi';
+import { TicketStatusBadge } from '@/components/TicketStatusBadge';
+import { Rating } from '@/components/Rating';
 
 interface TicketDetail {
   id: string;
@@ -27,12 +29,6 @@ interface AuditEntry {
   createdAt: string;
   metadata: Record<string, unknown> | null;
 }
-
-const STATUS_LABEL: Record<string, string> = {
-  OPEN: '🟢 Открыт',
-  CLAIMED: '🟡 В работе',
-  CLOSED: '🔴 Закрыт',
-};
 
 export default function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -75,8 +71,8 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
     setBusy(false);
   }
 
-  if (loading) return <p className="text-sm text-slate-400">Загрузка…</p>;
-  if (!ticket) return <p className="text-sm text-slate-400">Тикет не найден.</p>;
+  if (loading) return <p className="text-sm text-muted">Загрузка…</p>;
+  if (!ticket) return <p className="text-sm text-muted">Тикет не найден.</p>;
 
   return (
     <div className="space-y-6">
@@ -85,7 +81,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
           <h1 className="text-2xl font-semibold text-white">
             Тикет №{ticket.number} — {ticket.category.emoji} {ticket.category.name}
           </h1>
-          <p className="text-sm text-slate-400">{STATUS_LABEL[ticket.status]}</p>
+          <TicketStatusBadge status={ticket.status} />
         </div>
       </div>
 
@@ -96,33 +92,33 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="card space-y-2 text-sm">
           <h2 className="font-medium text-white">Основное</h2>
-          <p className="text-slate-400">
-            Автор: <span className="text-slate-200">{ticket.authorId}</span>
+          <p className="text-muted">
+            Автор: <span className="text-white">{ticket.authorId}</span>
           </p>
-          <p className="text-slate-400">
+          <p className="text-muted">
             Создан:{' '}
-            <span className="text-slate-200">
+            <span className="text-white">
               {new Date(ticket.createdAt).toLocaleString('ru-RU')}
             </span>
           </p>
           {ticket.claimedById && (
-            <p className="text-slate-400">
-              В работе у: <span className="text-slate-200">{ticket.claimedById}</span>
+            <p className="text-muted">
+              В работе у: <span className="text-white">{ticket.claimedById}</span>
             </p>
           )}
           {ticket.closedById && (
             <>
-              <p className="text-slate-400">
-                Закрыл: <span className="text-slate-200">{ticket.closedById}</span>
+              <p className="text-muted">
+                Закрыл: <span className="text-white">{ticket.closedById}</span>
               </p>
-              <p className="text-slate-400">
-                Причина: <span className="text-slate-200">{ticket.closeReason}</span>
+              <p className="text-muted">
+                Причина: <span className="text-white">{ticket.closeReason}</span>
               </p>
             </>
           )}
           {ticket.rating && (
-            <p className="text-slate-400">
-              Оценка: <span className="text-slate-200">{'⭐'.repeat(ticket.rating.score)}</span>
+            <p className="text-muted">
+              Оценка: <Rating score={ticket.rating.score} />
             </p>
           )}
           {ticket.transcript && (
@@ -230,7 +226,7 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
 
           {ticket.members.length > 0 && (
             <div className="space-y-1 text-sm">
-              <p className="text-slate-400">Дополнительные участники:</p>
+              <p className="text-muted">Дополнительные участники:</p>
               {ticket.members.map((member) => (
                 <div key={member.userId} className="flex items-center justify-between">
                   <span>{member.userId}</span>
@@ -251,13 +247,13 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
           <div className="space-y-2 text-sm">
             {auditEntries.map((entry) => (
               <div key={entry.id} className="border-b border-surface-border/50 pb-2">
-                <p className="text-slate-200">{entry.action}</p>
-                <p className="text-xs text-slate-500">
+                <p className="text-white">{entry.action}</p>
+                <p className="text-xs text-muted">
                   {entry.actorId} · {new Date(entry.createdAt).toLocaleString('ru-RU')}
                 </p>
               </div>
             ))}
-            {auditEntries.length === 0 && <p className="text-slate-500">Записей пока нет.</p>}
+            {auditEntries.length === 0 && <p className="text-muted">Записей пока нет.</p>}
           </div>
         </div>
       </div>

@@ -18,7 +18,7 @@ export default async function LoginPage() {
           unoptimized
         />
         <h1 className="text-xl font-semibold text-white">Панель управления</h1>
-        <p className="mt-2 text-sm text-slate-400">
+        <p className="mt-2 text-sm text-muted">
           Доступ только для администраторов сервера TWOMC.SU с ролью управления ботом.
         </p>
         <a href="/api/auth/login" className="btn-primary mt-6 w-full">

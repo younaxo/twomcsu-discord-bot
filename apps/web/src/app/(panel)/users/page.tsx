@@ -57,7 +57,7 @@ export default function UsersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-white">Пользователи сервера</h1>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-muted">
             Данные обновляются ботом каждые 15 минут. Всего: {total}
           </p>
         </div>
@@ -78,15 +78,15 @@ export default function UsersPage() {
 
       <div className="card overflow-x-auto">
         {loading ? (
-          <p className="text-sm text-slate-400">Загрузка…</p>
+          <p className="text-sm text-muted">Загрузка…</p>
         ) : items.length === 0 ? (
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-muted">
             Пользователи не найдены. Нажмите «Обновить сейчас», если бот только запущен.
           </p>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-surface-border text-left text-slate-400">
+              <tr className="border-b border-surface-border text-left text-muted">
                 <th className="pb-2">Пользователь</th>
                 <th className="pb-2">Discord ID</th>
                 <th className="pb-2">Вступил</th>
@@ -110,8 +110,8 @@ export default function UsersPage() {
                     )}
                     {user.globalName ?? user.username}
                   </td>
-                  <td className="py-2 text-slate-400">{user.discordUserId}</td>
-                  <td className="py-2 text-slate-400">
+                  <td className="py-2 text-muted">{user.discordUserId}</td>
+                  <td className="py-2 text-muted">
                     {user.joinedAt ? new Date(user.joinedAt).toLocaleDateString('ru-RU') : '—'}
                   </td>
                   <td className="py-2">{user.ticketCount}</td>
@@ -127,7 +127,7 @@ export default function UsersPage() {
         )}
       </div>
 
-      <div className="flex items-center justify-between text-sm text-slate-400">
+      <div className="flex items-center justify-between text-sm text-muted">
         <button
           className="btn-secondary"
           disabled={page <= 1}
