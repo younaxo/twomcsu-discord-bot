@@ -20,6 +20,8 @@ interface TicketDetail {
   members: { userId: string; addedAt: string }[];
   rating: { score: number; comment: string | null } | null;
   transcript: { messageCount: number; createdAt: string } | null;
+  threadId: string | null;
+  discordUrl: string | null;
 }
 
 interface AuditEntry {
@@ -121,16 +123,34 @@ export default function TicketDetailPage({ params }: { params: Promise<{ id: str
               Оценка: <Rating score={ticket.rating.score} />
             </p>
           )}
-          {ticket.transcript && (
-            <a
-              href={`/api/tickets/${id}/transcript`}
-              target="_blank"
-              rel="noreferrer"
-              className="btn-secondary mt-2 inline-flex"
-            >
-              Открыть транскрипт ({ticket.transcript.messageCount} сообщ.)
-            </a>
-          )}
+          <p className="text-muted">
+            Модель:{' '}
+            <span className="text-white">
+              {ticket.threadId ? 'приватная ветка' : 'канал (устаревшая)'}
+            </span>
+          </p>
+          <div className="flex flex-wrap gap-2 pt-1">
+            {ticket.discordUrl && (
+              <a
+                href={ticket.discordUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-secondary"
+              >
+                Открыть в Discord
+              </a>
+            )}
+            {ticket.transcript && (
+              <a
+                href={`/api/tickets/${id}/transcript`}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-secondary"
+              >
+                Транскрипт ({ticket.transcript.messageCount} сообщ.)
+              </a>
+            )}
+          </div>
         </div>
 
         <div className="card space-y-3">

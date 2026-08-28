@@ -26,6 +26,10 @@ export const ticketCategoryInputSchema = z.object({
     .min(1, 'Укажите приветственное сообщение')
     .max(LIMITS.WELCOME_MESSAGE_MAX),
   discordCategoryId: snowflake.nullable(),
+  /// Родительский текстовый канал, в котором создаются приватные ветки новых тикетов.
+  parentChannelId: snowflake.nullable(),
+  /// Автоархивация ветки — Discord принимает только эти четыре значения (в минутах).
+  autoArchiveMinutes: z.union([z.literal(60), z.literal(1440), z.literal(4320), z.literal(10080)]).default(4320),
   supportRoleIds: z.array(snowflake).max(20, 'Слишком много ролей поддержки'),
   logChannelId: snowflake.nullable(),
   transcriptChannelId: snowflake.nullable(),

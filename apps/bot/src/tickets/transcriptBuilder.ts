@@ -1,7 +1,9 @@
 // Генерация HTML-транскрипта тикета. Все пользовательские данные экранируются через escapeHtml —
 // сообщение с текстом вроде "<script>" не должно исполниться при открытии транскрипта в браузере.
-import { Collection, type Message, type TextChannel } from 'discord.js';
+import { Collection, type AnyThreadChannel, type Message, type TextChannel } from 'discord.js';
 import { escapeHtml } from '@twomcsu/shared';
+
+type TranscriptSource = TextChannel | AnyThreadChannel;
 
 interface TranscriptResult {
   html: string;
@@ -9,7 +11,7 @@ interface TranscriptResult {
 }
 
 export async function buildTranscript(
-  channel: TextChannel,
+  channel: TranscriptSource,
   ticketNumber: number,
 ): Promise<TranscriptResult> {
   const messages = await fetchAllMessages(channel);
@@ -57,7 +59,9 @@ export async function buildTranscript(
   return { html, messageCount: sorted.length };
 }
 
-async function fetchAllMessages(channel: TextChannel): Promise<Collection<string, Message<true>>> {
+async function fetchAllMessages(
+  channel: TranscriptSource,
+): Promise<Collection<string, Message<true>>> {
   const collected = new Collection<string, Message<true>>();
   let before: string | undefined;
 

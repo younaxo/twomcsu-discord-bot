@@ -32,6 +32,7 @@ describe('ticketCategoryInputSchema', () => {
     color: '#5865f2',
     welcomeMessage: 'Опишите проблему',
     discordCategoryId: null,
+    parentChannelId: null,
     supportRoleIds: [],
     logChannelId: null,
     transcriptChannelId: null,

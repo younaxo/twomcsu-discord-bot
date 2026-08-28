@@ -1,8 +1,14 @@
 // Вся бизнес-логика жизненного цикла тикета. Действия из Discord (кнопки) и из веб-панели
 // (через внутреннее API) проходят через одни и те же функции — единая точка правды.
+//
+// Новые тикеты создаются как приватные ветки (PrivateThread) внутри родительского текстового
+// канала категории — это основная модель. Старые тикеты остались отдельными каналами (channelId)
+// и продолжают работать по прежней логике с permission overwrites; у приватной ветки таких
+// overwrites нет, доступ строится через членство в ветке и права Manage Threads на родителе.
 import {
   ChannelType,
   PermissionFlagsBits,
+  type AnyThreadChannel,
   type Client,
   type Guild,
   type TextChannel,
@@ -10,13 +16,27 @@ import {
 import { prisma, type Ticket, type TicketCategory } from '@twomcsu/db';
 import { buildTicketChannelName, slugifyChannelName } from '@twomcsu/shared';
 import { buildTicketControlMessage, buildRatingPromptMessage } from './panelBuilder.js';
-import { buildTicketOverwrites } from './permissions.js';
 import { buildTranscript } from './transcriptBuilder.js';
 import { recordAuditLog } from '../audit/auditLog.js';
 import { withLock } from '../util/asyncLock.js';
 import { logger } from '../logger.js';
 
 export class TicketServiceError extends Error {}
+
+type TicketChannel = TextChannel | AnyThreadChannel;
+
+function isThreadTicket(ticket: Ticket): boolean {
+  return Boolean(ticket.threadId);
+}
+
+/** Возвращает канал тикета независимо от модели (ветка новой или канал старой). */
+async function getTicketChannel(client: Client, ticket: Ticket): Promise<TicketChannel | null> {
+  const id = ticket.threadId ?? ticket.channelId;
+  if (!id) return null;
+  const channel = await client.channels.fetch(id).catch(() => null);
+  if (!channel || !channel.isTextBased() || channel.isDMBased()) return null;
+  return channel as TicketChannel;
+}
 
 async function getGuildSettings(guildId: string) {
   return prisma.guildSettings.upsert({
@@ -31,10 +51,15 @@ export async function createTicket(
   guild: Guild,
   category: TicketCategory,
   authorId: string,
-): Promise<{ ticket: Ticket; channel: TextChannel }> {
+): Promise<{ ticket: Ticket; channel: TicketChannel }> {
   return withLock(`create:${guild.id}:${authorId}:${category.id}`, async () => {
     if (!category.isEnabled) {
       throw new TicketServiceError('Эта категория тикетов сейчас недоступна.');
+    }
+    if (!category.parentChannelId) {
+      throw new TicketServiceError(
+        'Для этой категории не настроен родительский канал тикетов. Обратитесь к администратору панели.',
+      );
     }
 
     const activeCount = await prisma.ticket.count({
@@ -51,6 +76,13 @@ export async function createTicket(
       );
     }
 
+    const parentChannel = await guild.channels.fetch(category.parentChannelId).catch(() => null);
+    if (!parentChannel || parentChannel.type !== ChannelType.GuildText) {
+      throw new TicketServiceError(
+        'Родительский канал тикетов недоступен или удалён. Обратитесь к администратору панели.',
+      );
+    }
+
     const settings = await getGuildSettings(guild.id);
 
     // Атомарный инкремент счётчика — безопасен при параллельных запросах на уровне БД.
@@ -60,35 +92,40 @@ export async function createTicket(
     });
     const number = updatedSettings.nextTicketNumber - 1;
 
-    const channelName = buildTicketChannelName(
-      'ticket-{number}',
+    const threadName = buildTicketChannelName(
+      settings.ticketNamePattern,
       number,
       slugifyChannelName(category.name),
     );
-    const parent = category.discordCategoryId
-      ? await guild.channels.fetch(category.discordCategoryId).catch(() => null)
-      : null;
 
-    const channel = await guild.channels.create({
-      name: channelName,
-      type: ChannelType.GuildText,
-      parent: parent && parent.type === ChannelType.GuildCategory ? parent.id : undefined,
-      topic: `Тикет №${number} · Автор: ${authorId} · Категория: ${category.name}`,
-      permissionOverwrites: buildTicketOverwrites(guild, authorId, category.supportRoleIds),
+    const thread = await parentChannel.threads.create({
+      name: threadName,
+      type: ChannelType.PrivateThread,
+      invitable: false,
+      autoArchiveDuration: category.autoArchiveMinutes as 60 | 1440 | 4320 | 10080,
+      reason: `Тикет №${number} · Автор: ${authorId} · Категория: ${category.name}`,
+    });
+
+    // Автор — обязательный участник ветки. Роли поддержки видят приватные ветки автоматически,
+    // если у них есть право Manage Threads на родительском канале (настраивается администратором
+    // сервера один раз для канала, не для каждого тикета).
+    await thread.members.add(authorId).catch((error) => {
+      logger.warn({ err: error, threadId: thread.id }, 'Не удалось добавить автора в ветку тикета');
     });
 
     const ticket = await prisma.ticket.create({
       data: {
         guildId: guild.id,
         number,
-        channelId: channel.id,
+        threadId: thread.id,
+        parentChannelId: parentChannel.id,
         categoryId: category.id,
         authorId,
         status: 'OPEN',
       },
     });
 
-    const controlMessage = await channel.send(buildTicketControlMessage(ticket, category));
+    const controlMessage = await thread.send(buildTicketControlMessage(ticket, category));
     await controlMessage.pin().catch(() => undefined);
     const updated = await prisma.ticket.update({
       where: { id: ticket.id },
@@ -105,14 +142,14 @@ export async function createTicket(
       logChannelId: category.logChannelId,
     });
 
-    return { ticket: updated, channel };
+    return { ticket: updated, channel: thread };
   });
 }
 
 async function refreshControlMessage(client: Client, ticket: Ticket, category: TicketCategory) {
-  if (!ticket.channelId || !ticket.controlMessageId) return;
+  if (!ticket.controlMessageId) return;
   try {
-    const channel = (await client.channels.fetch(ticket.channelId)) as TextChannel | null;
+    const channel = await getTicketChannel(client, ticket);
     const message = await channel?.messages.fetch(ticket.controlMessageId);
     await message?.edit(buildTicketControlMessage(ticket, category));
   } catch (error) {
@@ -132,6 +169,16 @@ export async function claimTicket(
   if (ticket.status !== 'OPEN') {
     throw new TicketServiceError('Тикет уже взят в работу или закрыт.');
   }
+
+  if (isThreadTicket(ticket)) {
+    const thread = await getTicketChannel(client, ticket);
+    if (thread?.isThread()) {
+      await thread.members.add(staffId).catch((error) => {
+        logger.warn({ err: error, ticketId: ticket.id }, 'Не удалось добавить сотрудника в ветку');
+      });
+    }
+  }
+
   const updated = await prisma.ticket.update({
     where: { id: ticket.id },
     data: { status: 'CLAIMED', claimedById: staffId, claimedAt: new Date() },
@@ -157,13 +204,11 @@ export async function closeTicket(
   if (ticket.status === 'CLOSED') {
     throw new TicketServiceError('Тикет уже закрыт.');
   }
-  if (!ticket.channelId) {
+  if (!ticket.threadId && !ticket.channelId) {
     throw new TicketServiceError('Канал тикета не найден.');
   }
 
-  const channel = (await client.channels
-    .fetch(ticket.channelId)
-    .catch(() => null)) as TextChannel | null;
+  const channel = await getTicketChannel(client, ticket);
 
   const updated = await prisma.ticket.update({
     where: { id: ticket.id },
@@ -171,12 +216,6 @@ export async function closeTicket(
   });
 
   if (channel) {
-    await channel.permissionOverwrites
-      .edit(ticket.authorId, {
-        SendMessages: false,
-      })
-      .catch(() => undefined);
-
     const { html, messageCount } = await buildTranscript(channel, ticket.number);
     await prisma.transcript.upsert({
       where: { ticketId: ticket.id },
@@ -202,6 +241,17 @@ export async function closeTicket(
 
     await refreshControlMessage(client, updated, category);
     await channel.send(buildRatingPromptMessage(ticket.id)).catch(() => undefined);
+
+    if (channel.isThread()) {
+      // Порядок важен: сначала отправляем финальные сообщения, потом блокируем и архивируем —
+      // заблокированная и заархивированная ветка новых сообщений не принимает.
+      await channel.setLocked(true, `Тикет №${ticket.number} закрыт`).catch(() => undefined);
+      await channel.setArchived(true, `Тикет №${ticket.number} закрыт`).catch(() => undefined);
+    } else {
+      await channel.permissionOverwrites
+        .edit(ticket.authorId, { SendMessages: false })
+        .catch(() => undefined);
+    }
   }
 
   await recordAuditLog(client, {
@@ -225,19 +275,24 @@ export async function reopenTicket(
   if (ticket.status !== 'CLOSED') {
     throw new TicketServiceError('Тикет не закрыт — открывать заново нечего.');
   }
-  if (!ticket.channelId) {
+  if (!ticket.threadId && !ticket.channelId) {
     throw new TicketServiceError(
       'Канал тикета удалён, повторное открытие невозможно. Создайте новый тикет.',
     );
   }
 
-  const channel = (await client.channels
-    .fetch(ticket.channelId)
-    .catch(() => null)) as TextChannel | null;
+  const channel = await getTicketChannel(client, ticket);
   if (channel) {
-    await channel.permissionOverwrites
-      .edit(ticket.authorId, { SendMessages: true })
-      .catch(() => undefined);
+    if (channel.isThread()) {
+      // Ветку нужно сперва разархивировать — заблокированную архивную ветку Discord не примет
+      // как активную, если проверять в обратном порядке.
+      await channel.setArchived(false, `Тикет №${ticket.number} открыт повторно`).catch(() => undefined);
+      await channel.setLocked(false, `Тикет №${ticket.number} открыт повторно`).catch(() => undefined);
+    } else {
+      await channel.permissionOverwrites
+        .edit(ticket.authorId, { SendMessages: true })
+        .catch(() => undefined);
+    }
   }
 
   const updated = await prisma.ticket.update({
@@ -269,18 +324,14 @@ export async function deleteTicket(
   category: TicketCategory,
   actorId: string,
 ): Promise<void> {
-  if (ticket.channelId) {
-    const channel = await client.channels.fetch(ticket.channelId).catch(() => null);
-    if (channel && 'delete' in channel) {
-      await (channel as TextChannel)
-        .delete(`Тикет удалён администратором ${actorId}`)
-        .catch(() => undefined);
-    }
+  const channel = await getTicketChannel(client, ticket);
+  if (channel) {
+    await channel.delete(`Тикет удалён администратором ${actorId}`).catch(() => undefined);
   }
 
   await prisma.ticket.update({
     where: { id: ticket.id },
-    data: { deletedAt: new Date(), channelId: null },
+    data: { deletedAt: new Date(), channelId: null, threadId: null },
   });
 
   await recordAuditLog(client, {
@@ -299,19 +350,23 @@ export async function addTicketMember(
   userId: string,
   addedById: string,
 ): Promise<void> {
-  if (!ticket.channelId) throw new TicketServiceError('Канал тикета не найден.');
+  const channel = await getTicketChannel(client, ticket);
+  if (!channel) throw new TicketServiceError('Канал тикета не найден.');
 
   const existing = await prisma.ticketMember.findUnique({
     where: { ticketId_userId: { ticketId: ticket.id, userId } },
   });
   if (existing) throw new TicketServiceError('Этот пользователь уже добавлен в тикет.');
 
-  const channel = (await client.channels.fetch(ticket.channelId)) as TextChannel;
-  await channel.permissionOverwrites.edit(userId, {
-    ViewChannel: true,
-    SendMessages: true,
-    ReadMessageHistory: true,
-  });
+  if (channel.isThread()) {
+    await channel.members.add(userId);
+  } else {
+    await channel.permissionOverwrites.edit(userId, {
+      ViewChannel: true,
+      SendMessages: true,
+      ReadMessageHistory: true,
+    });
+  }
 
   await prisma.ticketMember.create({ data: { ticketId: ticket.id, userId, addedById } });
   await recordAuditLog(client, {
@@ -331,17 +386,22 @@ export async function removeTicketMember(
   userId: string,
   removedById: string,
 ): Promise<void> {
-  if (!ticket.channelId) throw new TicketServiceError('Канал тикета не найден.');
   if (userId === ticket.authorId)
     throw new TicketServiceError('Нельзя убрать из тикета его автора.');
+
+  const channel = await getTicketChannel(client, ticket);
+  if (!channel) throw new TicketServiceError('Канал тикета не найден.');
 
   const existing = await prisma.ticketMember.findUnique({
     where: { ticketId_userId: { ticketId: ticket.id, userId } },
   });
   if (!existing) throw new TicketServiceError('Этот пользователь не состоит в тикете.');
 
-  const channel = (await client.channels.fetch(ticket.channelId)) as TextChannel;
-  await channel.permissionOverwrites.delete(userId).catch(() => undefined);
+  if (channel.isThread()) {
+    await channel.members.remove(userId).catch(() => undefined);
+  } else {
+    await channel.permissionOverwrites.delete(userId).catch(() => undefined);
+  }
   await prisma.ticketMember.delete({ where: { id: existing.id } });
 
   await recordAuditLog(client, {

@@ -22,7 +22,7 @@ model GuildSettings {
   updatedAt                  DateTime @updatedAt
 }
 
-/// Категория тикетов: правила создания канала, роли поддержки, тексты.
+/// Категория тикетов: правила создания ветки, роли поддержки, тексты.
 model TicketCategory {
   id                      String   @id @default(cuid())
   guildId                 String
@@ -31,7 +31,13 @@ model TicketCategory {
   emoji                   String
   color                   String
   welcomeMessage          String
+  /// Устаревшее поле формата "канал на категорию" — оставлено для уже существующих тикетов.
   discordCategoryId       String?
+  /// Родительский текстовый канал, в котором создаются приватные ветки новых тикетов.
+  /// Пока не задан — создание новых тикетов в этой категории заблокировано с понятной ошибкой.
+  parentChannelId         String?
+  /// Автоархивация ветки в минутах: 60 / 1440 / 4320 / 10080 — ровно значения, которые понимает Discord.
+  autoArchiveMinutes      Int      @default(4320)
   supportRoleIds          String[]
   logChannelId            String?
   transcriptChannelId     String?
@@ -87,8 +93,14 @@ model Ticket {
   id          String       @id @default(cuid())
   guildId     String
   number      Int
-  /// Null после удаления Discord-канала — запись и история тикета сохраняются.
+  /// Legacy-модель: отдельный канал на тикет. Null у новых тикетов и после удаления канала —
+  /// запись и история сохраняются в любом случае. Присутствие этого поля отличает старый тикет
+  /// от нового (см. threadId).
   channelId   String?      @unique
+  /// Новая модель: приватная ветка внутри parentChannelId. Null у legacy-тикетов.
+  threadId       String?   @unique
+  /// Родительский текстовый канал ветки — нужен, чтобы построить прямую ссылку на тред в Discord.
+  parentChannelId String?
   /// Сообщение с кнопками управления тикетом — перерисовывается при смене статуса.
   controlMessageId String?
   categoryId  String

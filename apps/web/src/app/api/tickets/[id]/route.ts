@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@twomcsu/db';
+import { env } from '@/env';
 import { guardMutation, guardRead, isSession } from '@/lib/apiGuard';
 import { botApi, InternalApiError } from '@/lib/internalApi';
 
@@ -24,7 +25,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     orderBy: { createdAt: 'asc' },
   });
 
-  return NextResponse.json({ ticket, auditEntries });
+  // Прямая ссылка на канал/ветку в Discord — считаем на сервере, чтобы не отдавать guildId
+  // клиенту отдельным полем без необходимости.
+  const discordChannelId = ticket.threadId ?? ticket.channelId;
+  const discordUrl = discordChannelId
+    ? `https://discord.com/channels/${env.DISCORD_GUILD_ID}/${discordChannelId}`
+    : null;
+
+  return NextResponse.json({ ticket: { ...ticket, discordUrl }, auditEntries });
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {

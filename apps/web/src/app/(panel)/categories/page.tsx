@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { TriangleAlert } from 'lucide-react';
 import { apiFetch } from '@/lib/clientApi';
 
 interface Category {
@@ -11,6 +12,8 @@ interface Category {
   color: string;
   welcomeMessage: string;
   discordCategoryId: string | null;
+  parentChannelId: string | null;
+  autoArchiveMinutes: number;
   supportRoleIds: string[];
   logChannelId: string | null;
   transcriptChannelId: string | null;
@@ -18,13 +21,22 @@ interface Category {
   isEnabled: boolean;
 }
 
+const AUTO_ARCHIVE_OPTIONS = [
+  { value: 60, label: '1 час' },
+  { value: 1440, label: '1 день' },
+  { value: 4320, label: '3 дня' },
+  { value: 10080, label: '7 дней' },
+];
+
 const emptyForm = {
   name: '',
   description: '',
   emoji: '🎫',
-  color: '#5865f2',
+  color: '#c2410c',
   welcomeMessage: 'Спасибо за обращение! Опишите вашу проблему, и поддержка скоро подключится.',
   discordCategoryId: '',
+  parentChannelId: '',
+  autoArchiveMinutes: 4320,
   supportRoleIds: '',
   logChannelId: '',
   transcriptChannelId: '',
@@ -60,6 +72,8 @@ export default function CategoriesPage() {
       color: category.color,
       welcomeMessage: category.welcomeMessage,
       discordCategoryId: category.discordCategoryId ?? '',
+      parentChannelId: category.parentChannelId ?? '',
+      autoArchiveMinutes: category.autoArchiveMinutes,
       supportRoleIds: category.supportRoleIds.join(', '),
       logChannelId: category.logChannelId ?? '',
       transcriptChannelId: category.transcriptChannelId ?? '',
@@ -82,6 +96,7 @@ export default function CategoriesPage() {
     const payload = {
       ...form,
       discordCategoryId: form.discordCategoryId || null,
+      parentChannelId: form.parentChannelId || null,
       logChannelId: form.logChannelId || null,
       transcriptChannelId: form.transcriptChannelId || null,
       supportRoleIds: form.supportRoleIds
@@ -89,6 +104,7 @@ export default function CategoriesPage() {
         .map((v) => v.trim())
         .filter(Boolean),
       maxActiveTicketsPerUser: Number(form.maxActiveTicketsPerUser),
+      autoArchiveMinutes: Number(form.autoArchiveMinutes),
     };
 
     const res = await apiFetch(editingId ? `/api/categories/${editingId}` : '/api/categories', {
@@ -124,7 +140,7 @@ export default function CategoriesPage() {
       <div>
         <h1 className="text-2xl font-semibold text-white">Категории тикетов</h1>
         <p className="text-sm text-muted">
-          Правила создания канала, роли поддержки и тексты для каждой категории.
+          Правила создания ветки тикета, роли поддержки и тексты для каждой категории.
         </p>
       </div>
 
@@ -133,10 +149,10 @@ export default function CategoriesPage() {
           {editingId ? 'Редактирование категории' : 'Новая категория'}
         </h2>
         {error && (
-          <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>
+          <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className="label">Название</label>
             <input
@@ -147,13 +163,17 @@ export default function CategoriesPage() {
             />
           </div>
           <div>
-            <label className="label">Emoji</label>
+            <label className="label">Emoji для Discord-панели</label>
             <input
               className="input"
               value={form.emoji}
               onChange={(e) => setForm({ ...form, emoji: e.target.value })}
               required
             />
+            <p className="mt-1 text-xs text-muted">
+              Discord не поддерживает произвольные SVG-иконки в кнопках — только текст и
+              unicode/кастомные emoji сервера.
+            </p>
           </div>
         </div>
 
@@ -167,7 +187,7 @@ export default function CategoriesPage() {
         </div>
 
         <div>
-          <label className="label">Приветственное сообщение в канале тикета</label>
+          <label className="label">Приветственное сообщение в ветке тикета</label>
           <textarea
             className="input min-h-24"
             value={form.welcomeMessage}
@@ -176,12 +196,44 @@ export default function CategoriesPage() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className="label">Родительский канал для веток тикетов</label>
+            <input
+              className="input"
+              value={form.parentChannelId}
+              onChange={(e) => setForm({ ...form, parentChannelId: e.target.value })}
+              placeholder="ID текстового канала"
+              required
+            />
+            <p className="mt-1 text-xs text-muted">
+              Все новые тикеты этой категории создаются как приватные ветки в этом канале. Выдайте
+              ролям поддержки право «Управление ветками» на канале — тогда они будут видеть все
+              ветки автоматически.
+            </p>
+          </div>
+          <div>
+            <label className="label">Автоархивация ветки</label>
+            <select
+              className="input"
+              value={form.autoArchiveMinutes}
+              onChange={(e) => setForm({ ...form, autoArchiveMinutes: Number(e.target.value) })}
+            >
+              {AUTO_ARCHIVE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label} бездействия
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className="label">Цвет embed</label>
             <input
               type="color"
-              className="input h-10"
+              className="input h-11"
               value={form.color}
               onChange={(e) => setForm({ ...form, color: e.target.value })}
             />
@@ -201,14 +253,14 @@ export default function CategoriesPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
-            <label className="label">ID категории Discord</label>
+            <label className="label">ID категории Discord (устарело)</label>
             <input
               className="input"
               value={form.discordCategoryId}
               onChange={(e) => setForm({ ...form, discordCategoryId: e.target.value })}
-              placeholder="Необязательно"
+              placeholder="Не используется новыми тикетами"
             />
           </div>
           <div>
@@ -240,7 +292,7 @@ export default function CategoriesPage() {
           />
         </div>
 
-        <label className="flex items-center gap-2 text-sm text-muted">
+        <label className="flex min-h-11 items-center gap-2 text-sm text-muted">
           <input
             type="checkbox"
             checked={form.isEnabled}
@@ -264,7 +316,11 @@ export default function CategoriesPage() {
       <div className="card">
         <h2 className="mb-4 font-medium text-white">Список категорий</h2>
         {loading ? (
-          <p className="text-sm text-muted">Загрузка…</p>
+          <div className="space-y-2">
+            {Array.from({ length: 3 }, (_, i) => (
+              <div key={i} className="skeleton h-16" />
+            ))}
+          </div>
         ) : categories.length === 0 ? (
           <p className="text-sm text-muted">Категорий пока нет — создайте первую выше.</p>
         ) : (
@@ -272,16 +328,24 @@ export default function CategoriesPage() {
             {categories.map((category) => (
               <div
                 key={category.id}
-                className="flex items-center justify-between rounded-lg border border-surface-border p-3"
+                className="flex flex-col gap-3 rounded-lg border border-surface-border p-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-xl">{category.emoji}</span>
+                  <span className="text-xl" aria-hidden="true">
+                    {category.emoji}
+                  </span>
                   <div>
                     <p className="font-medium text-white">{category.name}</p>
                     <p className="text-xs text-muted">
                       {category.isEnabled ? 'Активна' : 'Отключена'} · лимит{' '}
                       {category.maxActiveTicketsPerUser} на пользователя
                     </p>
+                    {!category.parentChannelId && (
+                      <p className="mt-1 flex items-center gap-1 text-xs text-warning">
+                        <TriangleAlert size={13} aria-hidden="true" />
+                        Не настроен родительский канал — новые тикеты создавать нельзя
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-2">
