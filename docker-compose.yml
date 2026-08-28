@@ -26,7 +26,7 @@ services:
     # Вызываем Prisma CLI напрямую, а не через "pnpm --filter": в runtime-образе нет корневого
     # package.json с пином версии pnpm, из-за чего corepack пытается скачать последнюю pnpm,
     # несовместимую с Node 20 в этом образе.
-    entrypoint: ['node', 'node_modules/prisma/build/index.js', 'migrate', 'deploy', '--schema', 'packages/db/prisma/schema.prisma']
+    entrypoint: ['node', 'packages/db/node_modules/prisma/build/index.js', 'migrate', 'deploy', '--schema', 'packages/db/prisma/schema.prisma']
     profiles: ['tools']
 
   bot:
