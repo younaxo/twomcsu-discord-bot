@@ -42,6 +42,10 @@ WORKDIR /app
 COPY --from=build /repo/apps/web/.next/standalone ./
 COPY --from=build /repo/apps/web/.next/static ./apps/web/.next/static
 COPY --from=build /repo/apps/web/public ./apps/web/public
+# Prisma Client запоминает абсолютный путь до движка на момент "prisma generate" (/repo/packages/db/...).
+# Трассировка файлов Next.js standalone его не подхватывает в монорепозитории — кладём по тому же
+# абсолютному пути и в рантайм-образе, чтобы Prisma нашёл нужный query engine.
+COPY --from=build /repo/packages/db/generated /repo/packages/db/generated
 
 EXPOSE 3000
 CMD ["node", "apps/web/server.js"]
