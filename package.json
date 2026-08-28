@@ -9,8 +9,9 @@
   },
   "scripts": {
     "build": "pnpm -r --filter=./packages/* --filter=./apps/* build",
-    "dev:bot": "pnpm --filter @twomcsu/bot dev",
-    "dev:web": "pnpm --filter @twomcsu/web dev",
+    "build:packages": "pnpm --filter @twomcsu/shared build && pnpm --filter @twomcsu/db build",
+    "dev:bot": "pnpm build:packages && pnpm --filter @twomcsu/bot dev",
+    "dev:web": "pnpm build:packages && pnpm --filter @twomcsu/web dev",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

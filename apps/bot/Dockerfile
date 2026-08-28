@@ -16,6 +16,10 @@ COPY packages/shared packages/shared
 COPY packages/db packages/db
 COPY apps/bot apps/bot
 RUN pnpm --filter @twomcsu/db generate
+# packages/db и packages/shared собираются в реальный JS: в рантайме бот запускается
+# обычным node, который (в отличие от tsx/webpack) не умеет исполнять .ts-исходники напрямую.
+RUN pnpm --filter @twomcsu/shared build
+RUN pnpm --filter @twomcsu/db build
 RUN pnpm --filter @twomcsu/bot build
 
 FROM base AS runtime
