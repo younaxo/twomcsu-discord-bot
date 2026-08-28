@@ -11,6 +11,7 @@ COPY apps/web/package.json apps/web/package.json
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS build
+COPY tsconfig.base.json tsconfig.base.json
 COPY packages/shared packages/shared
 COPY packages/db packages/db
 COPY apps/web apps/web
