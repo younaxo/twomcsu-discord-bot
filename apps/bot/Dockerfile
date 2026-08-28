@@ -26,6 +26,9 @@ COPY --from=build /repo/packages/shared ./packages/shared
 COPY --from=build /repo/packages/db ./packages/db
 COPY --from=build /repo/apps/bot/dist ./apps/bot/dist
 COPY --from=build /repo/apps/bot/package.json ./apps/bot/package.json
+# pnpm симлинкует прямые зависимости приложения в его собственный node_modules, а не только
+# в корневой — без этой папки discord.js/express/pino/zod не резолвятся в рантайме.
+COPY --from=build /repo/apps/bot/node_modules ./apps/bot/node_modules
 
 WORKDIR /repo/apps/bot
 EXPOSE 3001
