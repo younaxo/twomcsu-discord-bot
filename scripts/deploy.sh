@@ -62,7 +62,9 @@ check_env() {
 deploy_services() {
   cd "$REPO_DIR"
   log "Собираю образы…"
-  docker compose build
+  # У сервиса migrate profiles: ['tools'] — обычный "docker compose build" его пропускает,
+  # и без --profile tools команда run будет использовать устаревший образ без свежих миграций.
+  docker compose --profile tools build
 
   log "Применяю миграции базы данных…"
   docker compose run --rm migrate

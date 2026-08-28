@@ -170,6 +170,17 @@ export async function claimTicket(
     throw new TicketServiceError('Тикет уже взят в работу или закрыт.');
   }
 
+  // Атомарный переход статуса: если два «Взять в работу» прилетели почти одновременно (двойной
+  // клик, повторная доставка interaction), только один пройдёт условие status: 'OPEN' в WHERE.
+  const { count } = await prisma.ticket.updateMany({
+    where: { id: ticket.id, status: 'OPEN' },
+    data: { status: 'CLAIMED', claimedById: staffId, claimedAt: new Date() },
+  });
+  if (count === 0) {
+    throw new TicketServiceError('Тикет уже взят в работу или закрыт.');
+  }
+  const updated = await prisma.ticket.findUniqueOrThrow({ where: { id: ticket.id } });
+
   if (isThreadTicket(ticket)) {
     const thread = await getTicketChannel(client, ticket);
     if (thread?.isThread()) {
@@ -179,10 +190,6 @@ export async function claimTicket(
     }
   }
 
-  const updated = await prisma.ticket.update({
-    where: { id: ticket.id },
-    data: { status: 'CLAIMED', claimedById: staffId, claimedAt: new Date() },
-  });
   await refreshControlMessage(client, updated, category);
   await recordAuditLog(client, {
     action: 'TICKET_CLAIMED',
@@ -210,10 +217,16 @@ export async function closeTicket(
 
   const channel = await getTicketChannel(client, ticket);
 
-  const updated = await prisma.ticket.update({
-    where: { id: ticket.id },
+  // Атомарный переход: конкурентное закрытие (двойной клик, повтор interaction) не должно
+  // дважды строить транскрипт и дважды писать в аудит.
+  const { count } = await prisma.ticket.updateMany({
+    where: { id: ticket.id, status: { not: 'CLOSED' } },
     data: { status: 'CLOSED', closedById, closedAt: new Date(), closeReason: reason },
   });
+  if (count === 0) {
+    throw new TicketServiceError('Тикет уже закрыт.');
+  }
+  const updated = await prisma.ticket.findUniqueOrThrow({ where: { id: ticket.id } });
 
   if (channel) {
     const { html, messageCount } = await buildTranscript(channel, ticket.number);
@@ -295,8 +308,8 @@ export async function reopenTicket(
     }
   }
 
-  const updated = await prisma.ticket.update({
-    where: { id: ticket.id },
+  const { count } = await prisma.ticket.updateMany({
+    where: { id: ticket.id, status: 'CLOSED' },
     data: {
       status: 'OPEN',
       reopenedAt: new Date(),
@@ -305,6 +318,10 @@ export async function reopenTicket(
       claimedById: null,
     },
   });
+  if (count === 0) {
+    throw new TicketServiceError('Тикет уже не закрыт.');
+  }
+  const updated = await prisma.ticket.findUniqueOrThrow({ where: { id: ticket.id } });
 
   await refreshControlMessage(client, updated, category);
   await recordAuditLog(client, {
@@ -324,15 +341,18 @@ export async function deleteTicket(
   category: TicketCategory,
   actorId: string,
 ): Promise<void> {
+  const { count } = await prisma.ticket.updateMany({
+    where: { id: ticket.id, deletedAt: null },
+    data: { deletedAt: new Date(), channelId: null, threadId: null },
+  });
+  if (count === 0) {
+    throw new TicketServiceError('Тикет уже удалён.');
+  }
+
   const channel = await getTicketChannel(client, ticket);
   if (channel) {
     await channel.delete(`Тикет удалён администратором ${actorId}`).catch(() => undefined);
   }
-
-  await prisma.ticket.update({
-    where: { id: ticket.id },
-    data: { deletedAt: new Date(), channelId: null, threadId: null },
-  });
 
   await recordAuditLog(client, {
     action: 'TICKET_DELETED',
@@ -429,9 +449,18 @@ export async function rateTicket(
   const existing = await prisma.ticketRating.findUnique({ where: { ticketId: ticket.id } });
   if (existing) throw new TicketServiceError('Вы уже оценили этот тикет.');
 
-  await prisma.ticketRating.create({
-    data: { ticketId: ticket.id, raterId, staffId: ticket.claimedById ?? ticket.closedById, score },
-  });
+  try {
+    await prisma.ticketRating.create({
+      data: { ticketId: ticket.id, raterId, staffId: ticket.claimedById ?? ticket.closedById, score },
+    });
+  } catch (error) {
+    // P2002 — нарушение уникальности ticketId: два запроса на оценку прошли предварительную
+    // проверку одновременно, база защитила от дубля сама.
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
+      throw new TicketServiceError('Вы уже оценили этот тикет.');
+    }
+    throw error;
+  }
 
   await recordAuditLog(client, {
     action: 'TICKET_RATED',
