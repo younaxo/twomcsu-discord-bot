@@ -15,6 +15,9 @@ COPY packages/shared packages/shared
 COPY packages/db packages/db
 COPY apps/web apps/web
 RUN pnpm --filter @twomcsu/db generate
+# main/types обоих пакетов указывают на собранный dist — без этого шага next build их не найдёт.
+RUN pnpm --filter @twomcsu/shared build
+RUN pnpm --filter @twomcsu/db build
 
 # next build импортирует route-хендлеры для сбора метаданных, а те валидируют env.ts на уровне
 # модуля — реальные секреты в момент сборки образа ещё не нужны и недоступны (.env подключается
